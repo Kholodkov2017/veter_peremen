@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Котики вокруг фразы с анимацией</title>
+<style>
+:root{--bg:#0f172a;--glass:rgba(255,255,255,0.06);}
+html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial}
+body{background: radial-gradient(1200px 600px at 10% 20%, rgba(255,107,129,0.03), transparent),radial-gradient(900px 400px at 90% 80%, rgba(99,102,241,0.03), transparent),var(--bg);overflow:auto;color:#fff;}
+.hero{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:60;background: rgba(0,0,0,0.6);padding:28px 36px;border-radius:18px;backdrop-filter: blur(8px);box-shadow: 0 10px 30px rgba(2,6,23,0.8);border:1px solid rgba(255,255,255,0.06);max-width:92%;text-align:center;color:#fff;pointer-events:auto;}
+.phrase{font-size:48px;font-weight:800;line-height:1.05;letter-spacing:0.6px;text-transform:uppercase;margin:0}
+.sub{font-size:14px;opacity:0.85;margin-top:12px}
+.controls{margin-top:14px;display:flex;gap:10px;justify-content:center}
+.btn{background:rgba(255,255,255,0.06);color:#fff;border:1px solid rgba(255,255,255,0.06);padding:8px 12px;border-radius:10px;cursor:pointer}
+.stage{position:fixed;inset:0;z-index:10;pointer-events:none}
+.item{position:absolute;pointer-events:auto;z-index:40;user-select:none;width:140px;height:auto;object-fit:contain;border-radius:12px;transform-origin:center center;filter:drop-shadow(0 8px 20px rgba(0,0,0,0.5));transition:transform 0.3s;}
+@media (max-width:600px){.phrase{font-size:26px}.item{width:96px}}
+.hint{position:fixed;right:18px;bottom:18px;background:var(--glass);padding:10px 12px;border-radius:10px;color:#dbeafe;font-size:12px;z-index:70;border:1px solid rgba(255,255,255,0.03);pointer-events:auto}
+</style>
+</head>
+<body>
+<div class="hero" id="hero">
+<h1 class="phrase" id="phrase">Загрузка...</h1>
+<div class="sub">Твоя благодарность от ветра перемен!</div>
+<div class="controls">
+<button id="newPhrase" class="btn" aria-label="Новая фраза">Новая фраза</button>
+<button id="toggleCats" class="btn" aria-pressed="true">Скрыть котиков</button>
+</div>
+</div>
+<div class="stage" id="stage" aria-hidden="false"></div>
+<!-- <div class="hint">Добавляйте URL-ы котиков в массив <code>memes</code> в скрипте</div> -->
+<script>
+const memes = [
+      "https://yandex-images.clstorage.net/5qYZ6R080/9e4791S23Q/W_B-zkMhbU-VCnnu66v01169fQhTLb_GkZCqV99M_fYsODbXkXvBLSvTldN_Ei29CYTGZAEVXv84OumcIklzgxilO5kEYW5LnBgw8vno5NpT_nEeAWO7icOaql7aIJCGXU1dq_EA5FwAzpfeLkZi8UyXrA4YfT2RfWqXpiMuAcR_5kfsUigoeqQsI8b7tcriaNVcGlRakLqipd4tiBqqjHVrdKj6Hs1kINCk-wxEf5hcsrEbdkcsgGBdpYE5KwzeRPVu5GAAAWydPwXa_r_2wUPfeD1NVa6KlY3zB5MJgIlMTEel0RrHTTjbg9UaYle0fZiQE2tzPIFkZ726KDcK-G7iS-1BHQxKlhoB8dmC-8RD2EICalOdnruDxhe-EYOSfW5Jlc451lkN2obGAlBStU2roTtNdQuSYk-RujcjGNp700jEQCIOYYUwJd3uld7XZdBXA0xph5W_l94shTeVjFlHSofXDdFyBcOTwDJwUI9Tj5gfcHYWj2Fsq6wUHQrfd9pB4WsLLnW3KgDb647X3k32QQBCd5u4gIfjPoY6h5ZfZUmd5gLFRjf0rNUyTF68TqihJWtGBIxUaZ2lCgwh1Gn5cPdTADVjqDA74MONwMJR-WsvVGyuqb6T7w6gC4mpc2xXr9Mq5lYs8774DHJgpXusgTlQbyKTYUy4qgAsL8R192fgeCEzc4kqFfbPl_PRYdZ7BnZbh7efhtkMiDKBq1h-bqX5Cu9bOtqg8xNucaVsj7o3b2sBgEdHu4YtLzvmTtR82FMQMk-kCTP6-YjH53LmWT13S5CunZzVK6gpgJBpek2X4i70RQnvg_crcFaPcqyjO1pNALx9eJOGKBwq-G_oYOV5FCVBmjwN2-yS8dZ0-VssYVOss5Oc4zmfM6iPSWBLiNQc6Xoe1qDbHUhTq02unCtBdSiidHGMrSkGNctY21zBRxQ2VrwBE_H9jtzxdPBrL09Yr7y5gvgtrAY",
+      "https://yandex-images.clstorage.net/5qYZ6R080/9e4791S23Q/W_B-zkMhbU-VCnnu66v01169fQhTLb_GkZCqXdwdrPUuamfVwivCc3yElIcsECq-X9HBZFkXDP49Or6cIkl3iRuoPZgEfypPkB4y5Kex-MdL8WBLRm-mwpbJply2II6GXlBNtuoO6ls31pjUL1s0rUu9rHFhdjW6bkO5rgQnN-Na3EnMSzkbd6QNBub6n8D8YNxkHn9ElaOpvdUOjBqErnh5Tr30J9J7KeW99i1GXb1uoLkfW2ckp1lxnrQBKi3YSfVB_mMQDU63Kxrj8KPj12r4QwdweqWUgZD_FZ8wgZdfSkOW8C37YyLCk-ALbnGcRIGxAm93JaNjaaWlHSwL8l7QSN9-HStFki8xxM2u5tdtwnwgdkmxuo-l7ziHM5qmfURzidM871Yjx4D4OWtwrHewmSRpQDalS0Wlugk-Kedv02HeQR8AVrgLHfPai_XxZdd9BkxTur6bvdQDoSWEglRHYZDnO8ReOtKGyBlpSrJTib0Zal0rpmh_s5k3LCzrZtpE9Wg_FGSiLhv2wYL82UPBfghST5eBi4DGAKw3noR2RHuh6C_wbA3tk8glZ3mvdLCHAlpPKJNtSbqHJgcn9UXrUs1jJAJ7uBUg3sKV4MVM61EeSXqGv5-M9iadOaGof1pJlMAM4HcK_772G1lgmnCQmzlzaTemSGy1jQYJN-lL_EXmQiISWqI7NtLYpvP1Y_t4PH5TmJ6KuvQOpDGjg21jQ77gBe1hI-G16QdIYI1Tq5UGd0okgENvmaAFHRXSaOd9zXMjLneBHTrkx5LF5lPZQz1uRIGckLbTLr8wmLJpQHGlxB7zUhbCsdEZb0qTcLKZM1FLGLp8R5mlNgwL81T7QOd3NCBJtCMb8d2k9OBM21IrdnickpCAwRmlGIeSc0Zuk_YDzEUv4Z3nIWpurHKNiShpYwazdViypCwTOMRnx2TZdyc3b4k9MeDBidPgRetRBX17k7iOm9UqkBI",
+      "https://i.pinimg.com/736x/f3/ce/3c/f3ce3ca128a50c50b4b08550728f5fa0.jpg",
+      "https://i.pinimg.com/736x/a0/e0/cc/a0e0ccd8d8c88c66d4e1954d7c8c145a.jpg",
+      "https://i.pinimg.com/originals/92/6a/a4/926aa4e21fb85c541d34219380ac197c.jpg",
+      "https://i.pinimg.com/originals/94/ed/84/94ed84e24b8c4a528d4f746a76de781d.jpg",
+      "https://avatars.mds.yandex.net/i?id=ae8cf211b1dea84c0f50b41d9905c9eb_l-16429734-images-thumbs&n=13",
+      "https://i.pinimg.com/736x/c1/ab/57/c1ab576ae79560119175df11115549e0.jpg",
+      "https://i.pinimg.com/videos/thumbnails/originals/12/7f/e4/127fe4f8da5b0fb816dd006b60d7cc0d.0000000.jpg",
+      "https://avatars.mds.yandex.net/i?id=eedef51a12023858a5cf5a46c78bd8bb_l-4104102-images-thumbs&n=13",
+      "https://i.pinimg.com/736x/8d/3e/1c/8d3e1c2672f1101d0f4e5f42b46cee3c.jpg",
+      "https://i.pinimg.com/736x/ab/2f/6c/ab2f6cd5615507e717fbe25cf5c49470.jpg",
+      "https://i.pinimg.com/originals/53/4e/ff/534eff7d52e971e8ae766de54608fc4f.png",
+      "https://i.pinimg.com/736x/fa/0a/4e/fa0a4ed616b56175449d4bad09d102cb.jpg",
+      "https://i.pinimg.com/736x/fa/0a/4e/fa0a4ed616b56175449d4bad09d102cb.jpg",
+      "https://i.pinimg.com/originals/39/6f/0e/396f0ec7590d25ac8154abc76d4de4cc.jpg",
+      "https://avatars.mds.yandex.net/i?id=41135ee855bbd776f40f6249497026a0_l-5232106-images-thumbs&n=13",
+      "https://d2idu5mmj5r5g3.cloudfront.net/photos_m/KBMLFXU2Ek420861.jpg",
+      "https://avatars.mds.yandex.net/i?id=eeb8ce2bc7ee5c752cf79a7b207f090c_l-5176143-images-thumbs&ref=rim&n=13&w=983&h=983",
+      "https://sun9-67.userapi.com/impg/A3lkaD0NiRIZz0udzpTHMQ5Gabwgm9jsYzh1gg/pmvyCPUlS9A.jpg?size=454x807&quality=95&sign=bbe0535b8569cb9dd011bd2dba93e34c&c_uniq_tag=tligA2JfPso0EAanRJh4Qa_pAOc7Pt9urG2WTvYOChI&type=album",
+      "https://sun9-80.userapi.com/impg/c855020/v855020954/173285/1lDyIXw1OIE.jpg?size=810x1080&quality=96&sign=b5adb6706bffdb02f560796e7974fc75&c_uniq_tag=un1lauYaI3Jtz8KGpS2c-Cj2AGCHnVF3cfmcp39mKVM&type=album",
+      "https://avatars.dzeninfra.ru/get-zen_doc/1900460/pub_5db29b0c3d008800af12bb12_5db29b359c944600acb5f333/scale_1200",
+      "https://avatars.dzeninfra.ru/get-zen_doc/8074369/pub_647da9f3cdf5797126529946_647db4dd9373300bcbbc81cf/scale_1200",
+      "https://sun9-24.userapi.com/impg/hvD_HZFG2kdMpIm8HybuZUJKBqUXjAUZR2imig/w_4m2sQvDGs.jpg?size=1280x979&quality=95&sign=972061a5782d758fe5c77871c00673d2&c_uniq_tag=0HYAr3UsPbqGvJ-yaOcOeQtfvQnNBtuHpSdOgl2KXy4&type=album",
+      "https://i.ytimg.com/vi/-IvByDlV3rg/maxresdefault.jpg",
+      "https://59.ru/html-to-img/og/vEbllFsnNqQ4N0WaG8Y5Vg/article-id4095965-16x9.jpg?1714348751", 
+      "https://podacha-blud.com/uploads/posts/2022-09/1664331389_72-podacha-blud-com-p-blini-s-dirochkami-foto-79.jpg",
+      "https://i.ytimg.com/vi/lh3x8VZ_EAw/maxresdefault.jpg",
+      "https://cdn.fishki.net/upload/post/2019/12/23/3178958/9a30b0f4e07142d5ae0619feea8eda96.jpg",
+      "https://i.pinimg.com/736x/8f/fc/70/8ffc70f92ea4609a497eca27e2797cdf.jpg"
+];
+const phrases = [
+'Спасибо, что заботишься о себе сегодня.',
+  'Благодарю за смелость быть собой.',
+  'Спасибо за каждый маленький шаг вперёд.',
+  'Благодарность делает сердце сильнее.',
+  'Спасибо, что продолжаешь пытаться.',
+  'Ты важен(на) и заслуживаешь доброты. Спасибо.',
+  'Благодарю за то, что даришь свет вокруг себя.',
+  'Спасибо, что находишь время для себя.',
+  'Благодарю за честность с собой.',
+  'Спасибо за то, что продолжаешь идти даже когда тяжело.',
+  'Ты заслуживаешь мира и тепла. Спасибо за то, что ты здесь.',
+  'Благодарю за твою терпеливость с собой и другими.',
+  'Спасибо за то, что умеешь радоваться маленьким вещам.',
+  'Благодарю за твоё сердце, которое умеет любить.',
+  'Спасибо за твою смелость открываться миру.',
+  'Благодарю за то, что учишься на каждом шаге.',
+  'Спасибо за твою доброту — она делает этот мир мягче.',
+  'Благодарю за твой искренний смех.',
+  'Спасибо за то, что остаёшься собой среди шумного мира.',
+  'Благодарю за каждую минуту, когда ты заботишься о себе.',
+  'Спасибо за то, что умеешь прощать себя.',
+  'Благодарю за твою чувствительность — она ценна.',
+  'Спасибо за свет, который ты приносишь в жизнь других.',
+  'Благодарю за смелость признавать свои чувства.',
+  'Спасибо за каждое твоё маленькое достижение.',
+  'Благодарю за твоё терпение и стойкость.',
+  'Спасибо, что даришь себе минуты покоя.',
+  'Благодарю за то, что принимаешь себя сегодня таким(такой), какой(какая) ты есть.',
+  'Спасибо за твою искреннюю заботу о других.',
+  'Благодарю за моменты, когда ты выбираешь добро.',
+  'Спасибо за то, что стараешься, даже когда сложно.',
+  'Благодарю за твою честность перед самим собой.',
+  'Спасибо за свет, который ты несёшь в этот день.',
+  'Благодарю за твои усилия, даже если они кажутся маленькими.',
+  'Спасибо за твою веру в себя.',
+  'Благодарю за твою любовь к миру вокруг.',
+  'Спасибо за то, что учишься доверять себе.',
+  'Благодарю за каждый вдох и каждый шаг.',
+  'Спасибо за то, что ценишь свои эмоции.',
+  'Благодарю за твою мягкость и открытость.',
+  'Спасибо за то, что умеешь слушать себя.',
+  'Благодарю за твою способность находить красоту в мелочах.',
+  'Спасибо за твой свет даже в трудные времена.',
+  'Благодарю за каждый день, когда ты выбираешь заботу о себе.',
+  'Спасибо за твою искреннюю улыбку.',
+  'Благодарю за то, что учишься принимать свои ошибки.',
+  'Спасибо за твоё умение вдохновлять других.',
+  'Благодарю за моменты спокойствия, которые ты даришь себе.',
+  'Спасибо за то, что веришь в доброту.',
+  'Благодарю за твои маленькие победы.',
+  'Спасибо за то, что находишь радость в настоящем.',
+  'Благодарю за твою открытость к новым впечатлениям.',
+  'Спасибо за то, что умеешь быть честным(честной) с собой.',
+  'Благодарю за твою доброжелательность и внимание.',
+  'Спасибо за то, что заботишься о своём внутреннем мире.',
+  'Благодарю за твою силу и нежность одновременно.',
+  'Спасибо за каждый момент, когда ты выбираешь свет вместо тьмы.',
+  'Благодарю за то, что доверяешь своему сердцу.',
+  'Спасибо за твоё стремление к гармонии.',
+  'Благодарю за твою способность любить без условий.',
+  'Спасибо за то, что ценишь своё время и пространство.',
+  'Благодарю за твою искреннюю доброту.',
+  'Спасибо за каждый день, когда ты выбираешь себя.',
+  'Благодарю за то, что даришь тепло окружающим.',
+  'Спасибо за твою внутреннюю силу и мягкость одновременно.',
+  'Благодарю за твою заботу о душе и теле.',
+  'Спасибо за моменты тишины, которые ты позволяешь себе.',
+  'Благодарю за твоё терпение и стойкость перед трудностями.',
+  'Спасибо за твоё умение радоваться простым вещам.',
+  'Благодарю за твою способность видеть свет даже в темноте.',
+  'Спасибо за то, что ты продолжаешь идти своим путём.',
+  'Благодарю за твою веру в лучшее.',
+  'Спасибо за твою открытость к миру и людям.',
+  'Благодарю за твою способность вдохновлять других своим примером.',
+  'Спасибо за то, что умеешь ценить каждый день.',
+  'Благодарю за твоё внимание к своим чувствам.',
+  'Спасибо за то, что умеешь любить себя таким(такой), какой(какая) ты есть.',
+  'Благодарю за твою искреннюю благодарность за маленькие вещи.',
+  'Спасибо за твою доброту, которая делает мир теплее.',
+  'Благодарю за твою внутреннюю гармонию.',
+  'Спасибо за моменты, когда ты выбираешь радость.',
+  'Благодарю за твою способность находить красоту вокруг себя.',
+  'Спасибо за твою смелость быть уязвимым(уязвимой).',
+  'Благодарю за твоё умение прощать.',
+  'Спасибо за твоё терпение с собой и окружающими.',
+  'Благодарю за твою искреннюю заботу о близких.',
+  'Спасибо за то, что ценишь маленькие радости.',
+  'Благодарю за твоё внимание к миру и себе.',
+  'Спасибо за твою доброту в каждом поступке.',
+  'Благодарю за твою стойкость в трудные моменты.',
+  'Спасибо за твою способность видеть чудо в обычном.',
+  'Благодарю за твою готовность учиться и расти.',
+  'Спасибо за твою любовь к себе и к жизни.',
+  'Благодарю за моменты, когда ты выбираешь свет вместо сомнений.',
+  'Спасибо за твою способность делиться теплом с другими.',
+  'Благодарю за твоё умение радоваться настоящему моменту.',
+  'Спасибо за твою искренность и честность.',
+  'Благодарю за твою мягкость и умение быть терпеливым(терпеливой).',
+  'Спасибо за то, что ты остаёшься верным(верной) себе.',
+  'Благодарю за твоё внимание к своим потребностям.',
+  'Спасибо за то, что умеешь слушать своё сердце.',
+  'Благодарю за твою внутреннюю доброту.',
+  'Спасибо за твою смелость принимать перемены.',
+  'Благодарю за твою способность быть светом для других.',
+  'Спасибо за твоё внимание к красоте вокруг тебя.',
+  'Благодарю за твою веру в лучшее, даже когда трудно.',
+  'Спасибо за твою заботу о душе и сердце.',
+  'Благодарю за то, что умеешь быть благодарным(благодарной).',
+  'Спасибо за твоё стремление к миру и гармонии.',
+  'Благодарю за твоё внимание к себе и окружающим.',
+  'Спасибо за твою способность находить радость в каждом дне.',
+  'Благодарю за твою готовность быть уязвимым(уязвимой).',
+  'Спасибо за твою честность перед самим собой.',
+  'Благодарю за твою способность любить без условий.',
+  'Спасибо за твоё внимание к своим мыслям и чувствам.',
+  'Благодарю за твою веру в свои силы.',
+  'Спасибо за твоё стремление к гармонии и миру внутри себя.',
+  'Благодарю за твоё умение находить свет даже в трудные дни.',
+  'Спасибо за твою мягкость и внутреннюю силу одновременно.',
+  'Благодарю за твоё внимание к настоящему моменту.',
+  'Спасибо за твоё умение радоваться простым вещам.',
+  'Благодарю за твою заботу о себе и о других.',
+  'Спасибо за твою внутреннюю стойкость и мягкость.',
+  'Благодарю за твою способность видеть прекрасное в мире.',
+  'Спасибо за твою готовность меняться и расти.',
+  'Благодарю за твою искреннюю заботу о себе и близких.',
+  'Спасибо за твою веру в светлое будущее.',
+  'Благодарю за твою способность вдохновлять других своим примером.',
+  'Спасибо за твою мягкость, терпение и любовь.',
+  'Благодарю за твои маленькие, но значимые шаги.',
+  'Спасибо за твою способность находить радость в каждом дне.',
+  'Благодарю за твоё внимание к своим эмоциям.',
+  'Спасибо за твоё умение прощать и отпускать.',
+  'Благодарю за твоё внутреннее тепло и свет.',
+  'Спасибо за твою готовность принимать себя и других.',
+  'Благодарю за твою веру в свои силы и возможности.',
+  'Спасибо за твою мягкость, доброту и заботу.',
+  'Благодарю за твой свет, который согревает сердца.',
+  'Спасибо за то, что умеешь радоваться жизни.',
+  'Благодарю за твою честность, терпение и стойкость.',
+  'Спасибо за твою способность видеть хорошее даже в трудностях.',
+  'Благодарю за твою смелость быть собой каждый день.',
+  'Спасибо за твоё внимание к миру вокруг и к себе.',
+  'Благодарю за твоё стремление к гармонии и миру внутри себя.',
+  'Спасибо за твоё сердце, полное доброты и тепла.',
+  'Благодарю за твою готовность учиться и меняться.',
+  'Спасибо за твою способность делиться светом с другими.',
+  'Благодарю за твою искренность, мягкость и любовь к жизни.',
+  'Спасибо за твоё умение радоваться маленьким чудесам каждый день.',
+  'Благодарю за твоё внимание к себе, своим мыслям и чувствам.',
+  'Спасибо за твою стойкость, смелость и внутреннюю силу.',
+  'Благодарю за твою способность видеть свет в любых обстоятельствах.',
+  'Спасибо за твою веру в себя, своих близких и мир вокруг.',
+  'Благодарю за твою мягкость, терпение и умение любить.',
+  'Спасибо за то, что продолжаешь идти своим путём несмотря на трудности.',
+  'Благодарю за твою заботу о себе и окружающих.',
+  'Спасибо за твою доброту, свет и искренность.',
+  'Благодарю за твою внутреннюю гармонию, веру и силу.',
+  'Спасибо за твою способность вдохновлять и радовать окружающих.',
+  'Благодарю за каждый момент, когда ты выбираешь свет и добро.'
+];
+const stage=document.getElementById('stage');
+const phraseEl=document.getElementById('phrase');
+const heroEl=document.getElementById('hero');
+const newPhraseBtn=document.getElementById('newPhrase');
+const toggleCatsBtn=document.getElementById('toggleCats');
+function showRandomPhrase(){const p=phrases[Math.floor(Math.random()*phrases.length)];phraseEl.textContent=p;}
+function rand(min,max){return Math.random()*(max-min)+min;}
+function createItem(url,left,top,scale,rotate){const img=document.createElement('img');img.src=url;img.className='item';img.alt='cat';img.style.left=left+'px';img.style.top=top+'px';img.style.transform=`scale(${scale}) rotate(${rotate}deg)`;stage.appendChild(img);return img;}
+let createdCats=[];
+function scatterCats(){
+  createdCats.forEach(c=>c.remove());createdCats=[];
+  const count=memes.length;
+  if(count===0) return;
+
+  const heroRect=heroEl.getBoundingClientRect();
+  const padding=20;
+  const placed=[];
+
+  for(let i=0;i<count;i++){
+    let left,top,attempts=0,overlap;
+    do{
+      left=rand(0,window.innerWidth-140);
+      top=rand(0,window.innerHeight-140);
+      overlap=placed.some(p=>Math.abs(p.left-left)<140+padding && Math.abs(p.top-top)<140+padding);
+      attempts++;
+    }while((left<heroRect.right+padding && left+140>heroRect.left-padding && top<heroRect.bottom+padding && top+140>heroRect.top-padding || overlap) && attempts<200);
+    placed.push({left,top});
+    const scale=rand(0.8,1.2);
+    const rotate=rand(-20,20);
+    createdCats.push(createItem(memes[i],left,top,scale,rotate));
+  }
+}
+let catsVisible=true;
+toggleCatsBtn.addEventListener('click',()=>{
+  catsVisible=!catsVisible;
+  if(!catsVisible){createdCats.forEach(c=>c.style.display='none');toggleCatsBtn.textContent='Показать котиков';}
+  else{createdCats.forEach(c=>c.style.display='block');toggleCatsBtn.textContent='Скрыть котиков';}
+});
+newPhraseBtn.addEventListener('click',()=>{showRandomPhrase();});
+function boot(){showRandomPhrase();scatterCats();}
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot);
+else boot();
+window.addEventListener('resize',()=>{scatterCats();});
+</script>
+</body>
+</html>
